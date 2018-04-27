@@ -1,0 +1,27 @@
+<?xml version="2.0" encoding="UTF-8"?>
+<!-- edited with  XMLSPY v2004 rel. 3 U (http://www.xmlspy.com) by Mohana Ramaratnam (Washington University) -->
+<pip:Resource xmlns:pip="http://nrg.wustl.edu/pipeline">
+        <pip:name>run_pipeline.sh</pip:name>
+        <pip:location>AshsHarpIcv/scripts</pip:location>
+        <pip:type>Executable</pip:type>
+        <pip:description>Script to use the HARP-ICV segmentation service with the ASHS server</pip:description>
+        <pip:estimated_time>00:30:00</pip:estimated_time>
+        <pip:input>
+                <pip:argument id="project" >
+			<pip:name>p</pip:name>
+                        <pip:description>project</pip:description>
+                </pip:argument>
+                <pip:argument id="session_id" >
+			<pip:name>s</pip:name> 
+                        <pip:description>session_id</pip:description>
+                </pip:argument>
+		<pip:argument id="scan_id" >
+			<pip:name>n</pip:name>
+                        <pip:description>scan_id</pip:description>
+                </pip:argument>
+                <pip:argument id="age" >
+			<pip:name>a</pip:name>
+                        <pip:description>age</pip:description>
+                </pip:argument>
+        </pip:input>
+</pip:Resource>

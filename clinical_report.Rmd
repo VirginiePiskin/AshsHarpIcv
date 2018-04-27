@@ -1,0 +1,204 @@
+---
+title: "Automatic Segmentation of Hippocampal Subfields"
+subtitle: "H.A.R.P - Harmonized Hippocampal Protocol"
+author: "Penn Image Computing and Science Laboratory"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output: 
+  pdf_document
+params:
+  PID: "" # Patient's ID 
+  PAGE: !r as.double("") # Patient's age
+  PICV: !r as.double("") # Patient's intracranial volume
+  PHVL: !r as.double("") # Patient's left hippocampal volume
+  PHVR: !r as.double("") # Patient's right hippocampal volume
+  NDF: "" # Normative data file path
+  QAICV: "" # ICV QA image path (qa_seg_bootstrap_corr_usegray)
+  QAHVL: "" # HVL QA image path (qa_seg_bootstrap_corr_usegray)
+  QAHVR: "" # HVR QA image path (qa_seg_bootstrap_corr_usegray)
+---
+
+# Patient's information
+
+```{r PatientInformation, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+library(kableExtra)
+library(knitr)
+library(latex2exp)
+
+attach(params)
+
+# Creates a table from the patient's information given as parameters
+information=c("ID","Age","Intracranial Volume","Left Hippocampal Volume","Right Hippocampal Volume")
+values=c(PID,PAGE,PICV,PHVL,PHVR)
+patient_data=data.frame(information,values)
+patient_data=t(patient_data)
+rownames(patient_data) <- NULL
+
+# Displays the patient's information table
+options(knitr.table.format = "latex") 
+patient_data %>%
+  kable("latex") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "center")
+
+```
+
+# Segmentation results
+
+## **Left Hippocampus automatic segmentation result**
+
+![Image1](`r params$QAHVL`)
+\newline
+
+## **Right Hippocampus automatic segmentation result**
+
+![Image2](`r params$QAHVR`)
+\newline
+
+## **Intracranial volume automatic segmentation result**
+
+![Image3](`r params$QAICV`)
+\newline
+
+# Patient's diagnosis 
+
+```{r NormativeData1, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+library(ggplot2)
+library(scales)
+library(ggthemes)
+library(RColorBrewer)
+library(wesanderson)
+library(extrafont)
+library(fontcm)
+library(extrafontdb)
+library(Rttf2pt1)
+library(latex2exp)
+library(gridExtra)
+library(grid)
+library(ggpubr)
+
+#windowsFonts(TimesNewRoman=windowsFont("Times New Roman"))
+#windowsFonts(Georgia=windowsFont("Georgia"))
+#windowsFonts(PalatinoLinotype = windowsFont("Palatino Linotype"))
+#windowsFonts(CalibriLight = windowsFont("Calibri Light"))
+#windowsFonts(Cambria = windowsFont("Cambria"))
+
+# Reads the normative data provided in a csv file
+all_normative_data=read.csv("ADNI_metadata_for_R.csv")
+attach(all_normative_data)
+normative_data=all_normative_data[(Diagnosis=="CONTROL" & Amyloid.Status=="NEG") | (Diagnosis=="EARLY MCI" & Amyloid.Status=="POS") | (Diagnosis=="LATE MCI" & Amyloid.Status=="POS") | (Diagnosis=="DEMENTIA" & Amyloid.Status=="POS"), ]
+normative_data$Diagnosis=sub(pattern = "EARLY MCI",replacement = "MCI",x=normative_data$Diagnosis) 
+normative_data$Diagnosis=sub(pattern = "LATE MCI",replacement = "MCI",x=normative_data$Diagnosis) 
+attach(normative_data)
+
+ICV.mean=mean(normative_data$ICV)
+volume=ICV.mean*(normative_data$HVleft+normative_data$HVright)/normative_data$ICV
+age=normative_data$Age
+
+# Caculates relative volume of the hippocampus for all the patient
+PVOL=ICV.mean*(PHVL+PHVR)/PICV
+PAGE=PAGE
+
+
+find.CTRL=normative_data$Diagnosis == "CONTROL"
+find.MCI=normative_data$Diagnosis == "MCI"
+find.DEM=normative_data$Diagnosis == "DEMENTIA"
+
+CTRL=normative_data[find.CTRL,]
+MCI=normative_data[find.MCI,]
+DEM=normative_data[find.DEM,]
+
+amax=max(age)
+amin=min(age)
+vmax=max(volume)
+vmin=min(volume)
+
+ggcolors=c("#4DAF4A","#377EB8","#E41A1C")
+ggfills=c("#4DAF4A","#377EB8","#E41A1C")
+ggshapes=c(16,16,16)
+ggsizes=c(0.5,0.5,0.5)
+
+ggpointsize=1
+ggpointshape=16
+ggregsize=1
+ggregalpha=0.40
+
+ppointcolor="black"
+ppointshape=16
+ppointfill="black"
+ppointsize=1.5
+psegcolor="black"
+psegtype="dotted"
+psegsize=0.5
+
+legend_factor=normative_data$Diagnosis
+legend_levels=c("CONTROL", "MCI", "DEMENTIA")
+legend_labels=c("CONTROL AM-", "MCI AM+", "AD AM+")
+
+
+gg <- ggplot(data = normative_data,
+             mapping = aes(x = age,y=volume, 
+                           color = factor(legend_factor,levels = legend_levels), 
+                           fill = factor(legend_factor, legend_levels),
+                           shape = factor(legend_factor, levels = legend_levels),
+                           size = factor(legend_factor, legend_levels))) +
+  geom_point() + geom_smooth(method=lm, se=TRUE, level=0.99, fullrange=TRUE, alpha = ggregalpha, size=ggregsize) +
+  theme_few() + theme(legend.position = "right") +
+  labs(title="Hippocampal volume evolution with dementia stages", subtitle="H.A.R.P - Harmonized Hippocampal Protocol", 
+       y="Normalized Hippocampal Volume", x="Age", caption="Normative Data") +
+  annotation_custom(grob = textGrob(TeX("\\textit{Volume =  $\\frac{ \\sigma(ICV) $\\times$ (HV_{L]+HV_{R})}{ICV}$}"), 
+                                    gp = gpar(col="black", fontsize=8)),  
+                    xmin = amax - 0.14*amax, xmax = amax, ymin = vmax - 0.05*vmax, ymax = vmax) +
+  scale_color_manual(name = "Diagnosis",values = ggcolors, labels = legend_labels) +
+  scale_fill_manual(name = "Diagnosis",values = ggcolors, labels = legend_labels) +
+  scale_shape_manual(name = "Diagnosis",values = ggshapes, labels = legend_labels) +
+  scale_size_manual(name = "Diagnosis",values = ggsizes, labels = legend_labels) +
+  theme(plot.title=element_text(size = 13, face=c("bold"), color="Black",hjust=0.5),
+        plot.subtitle=element_text(size = 10,color="gray25",hjust=0.5),
+        plot.caption=element_text(size = 10, face=c("italic","bold"), color="black"),
+        axis.title.x=element_text(size = 10, color="gray25"),
+        axis.title.y=element_text(size = 10, color="gray25"),  
+        legend.title = element_text(size = 13, colour="black", face="bold"),
+        legend.text = element_text(size = 10,color="gray25"))  +
+  
+  # Displays the patient's position among the normative data
+  geom_point(aes(x=PAGE, y=PVOL), color=ppointcolor, fill =ppointcolor, shape = ppointshape, size = ppointsize, show.legend = FALSE) +
+  geom_segment(aes(x = amin, y = PVOL, xend = PAGE, yend = PVOL),color=psegcolor,linetype=psegtype,size=psegsize,show.legend = FALSE) +
+  geom_segment(aes(x = PAGE, y = vmin, xend = PAGE, yend = PVOL),color=psegcolor,linetype=psegtype,size=psegsize,show.legend = FALSE) +
+  geom_text(aes(x=PAGE-0.01*PAGE, y=PVOL+0.03*PVOL), label='P',color=ppointcolor,size=ppointsize+2) 
+
+plot(gg)
+
+```
+
+```{r NormativeData2, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+
+gg <- ggplot(data = normative_data,
+             mapping = aes(x = age,y=volume, 
+                           color = factor(legend_factor,levels = legend_levels), 
+                           fill = factor(legend_factor, legend_levels),
+                           shape = factor(legend_factor, levels = legend_levels),
+                           size = factor(legend_factor, legend_levels))) +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE,alpha = ggregalpha,size=ggregsize,show.legend = FALSE) +
+  theme_few() + theme(legend.position = "right") +
+  labs(title="Hippocampal volume evolution with age", subtitle="H.A.R.P - Harmonized Hippocampal Protocol", 
+       y="Normalized Hippocampal Volume", x="Age") +
+  scale_color_manual(name = "Diagnosis",values = ggcolors) + #labels=c("*","**","***")) +
+  scale_fill_manual(name = "Diagnosis",values = ggcolors) + #labels=c("*","**","***")) +
+  scale_shape_manual(name = "Diagnosis",values = ggshapes) + #labels=c("*","**","***")) +
+  scale_size_manual(name = "Diagnosis",values = ggsizes,labels=c("*","**","***")) +
+  theme(plot.title=element_text(size = 13, face=c("bold"), color="Black",hjust=0.5),
+        plot.subtitle=element_text(size = 10,color="gray25",hjust=0.5),
+        plot.caption=element_text(size = 10, face=c("italic","bold"), color="black"),
+        axis.title.x=element_text(size = 10, color="gray25"),
+        axis.title.y=element_text(size = 10, color="gray25"),  
+        legend.title = element_text(size = 13, colour="black", face="bold"),
+        legend.text = element_text(size = 10,color="gray25"))  +
+  
+  # Displays the patient's position among the normative data
+  geom_point(aes(x=PAGE, y=PVOL), color=ppointcolor, fill =ppointcolor, shape = ppointshape, size = ppointsize, show.legend = FALSE) +
+  geom_segment(aes(x = amin, y = PVOL, xend = PAGE, yend = PVOL),color=psegcolor,linetype=psegtype,size=psegsize,show.legend = FALSE) +
+  geom_segment(aes(x = PAGE, y = vmin, xend = PAGE, yend = PVOL),color=psegcolor,linetype=psegtype,size=psegsize,show.legend = FALSE) +
+  geom_text(aes(x=PAGE-0.01*PAGE, y=PVOL+0.03*PVOL), label='P',color=ppointcolor,size=ppointsize+2) 
+
+plot(gg)
+
+```
